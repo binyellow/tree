@@ -37,6 +37,7 @@ function fillConductCheck<TreeDataType extends BasicDataNode = DataNode>(
     entities.forEach(entity => {
       const { key, node, children = [] } = entity;
 
+      // 从父往子元素遍历， 如果是勾选了父元素，则将子元素都push进去
       if (checkedKeys.has(key) && !syntheticGetCheckDisabled(node)) {
         children
           .filter(childEntity => !syntheticGetCheckDisabled(childEntity.node))
@@ -55,11 +56,13 @@ function fillConductCheck<TreeDataType extends BasicDataNode = DataNode>(
       const { parent, node } = entity;
 
       // Skip if no need to check
+      // 如果禁止勾选、没有父元素、已经遍历过，则跳过
       if (syntheticGetCheckDisabled(node) || !entity.parent || visitedKeys.has(entity.parent.key)) {
         return;
       }
 
       // Skip if parent is disabled
+      // 父元素禁用的话族元素也禁用，因为当前是非受控模式
       if (syntheticGetCheckDisabled(entity.parent.node)) {
         visitedKeys.add(parent.key);
         return;
@@ -72,17 +75,23 @@ function fillConductCheck<TreeDataType extends BasicDataNode = DataNode>(
         .filter(childEntity => !syntheticGetCheckDisabled(childEntity.node))
         .forEach(({ key }) => {
           const checked = checkedKeys.has(key);
+          // 如果父元素的某个子元素没被选中，allChecked=false
           if (allChecked && !checked) {
             allChecked = false;
           }
+          // 如果当前node被选中，且是半选，则部分checked=true
+          // 注意halfChecked初始值是[]
+          // TODO 还没看明白
           if (!partialChecked && (checked || halfCheckedKeys.has(key))) {
             partialChecked = true;
           }
         });
 
+      // 如果子元素都被选中了，则将父元素push到checkedKeys
       if (allChecked) {
         checkedKeys.add(parent.key);
       }
+      // 
       if (partialChecked) {
         halfCheckedKeys.add(parent.key);
       }
@@ -93,10 +102,12 @@ function fillConductCheck<TreeDataType extends BasicDataNode = DataNode>(
 
   return {
     checkedKeys: Array.from(checkedKeys),
+    // 如果是被选中了，则从halfCheckedKeys中移除
     halfCheckedKeys: Array.from(removeFromCheckedKeys(halfCheckedKeys, checkedKeys)),
   };
 }
 
+// 因为取消选中二级，现状是一级半选，三级全选
 // Remove useless key
 function cleanConductCheck<TreeDataType extends BasicDataNode = DataNode>(
   keys: Set<Key>,
@@ -109,6 +120,7 @@ function cleanConductCheck<TreeDataType extends BasicDataNode = DataNode>(
   let halfCheckedKeys = new Set<Key>(halfKeys);
 
   // Remove checked keys from top to bottom
+  // TODO 这个场景我没想到
   for (let level = 0; level <= maxLevel; level += 1) {
     const entities = levelEntities.get(level) || new Set();
     entities.forEach(entity => {
